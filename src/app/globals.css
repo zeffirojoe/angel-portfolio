@@ -150,6 +150,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .form-group > h3 { display: flex; align-items: baseline; gap: 0.6rem; font: 400 1.75rem/1.2 var(--serif); padding-bottom: 0.6rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line-ink); }
 .form-group > h3 span { font-style: italic; color: var(--blush-deep); }
 .form-grid { display: grid; gap: 1.1rem 1.25rem; }
+/* A hint above one input must not leave its neighbour sitting higher. */
+.form-grid > .field { display: flex; flex-direction: column; justify-content: flex-end; }
 .field, .choice { min-width: 0; margin: 0; padding: 0; border: 0; }
 .form-group > .field, .form-group > .choice { margin-top: 1.25rem; }
 .form-group > h3 + .field, .form-group > h3 + .choice { margin-top: 0; }
