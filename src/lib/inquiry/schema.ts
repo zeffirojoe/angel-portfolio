@@ -70,7 +70,7 @@ export const inquirySchema = z
       .refine((v) => links(v) <= 5, "Please remove some links.")
       .optional()
       .default(""),
-    adult: z.literal("on", "You must be 18 or older to book."),
+    adult: z.literal("on", "Please confirm you are 18 or older, or will bring a guardian who is."),
     understood: z.literal("on", "Please confirm you understand this is an inquiry."),
   })
   .refine((d) => d.email === d.confirmEmail, {

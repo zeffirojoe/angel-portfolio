@@ -64,11 +64,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .hero { position: relative; overflow: hidden; min-height: calc(100svh - 4rem); display: flex; align-items: flex-end; padding: 2rem var(--gutter) clamp(5.5rem, 12vh, 7rem); }
 .hero-peony { position: absolute; top: 0.25rem; right: -9vw; width: 76vw; height: auto; max-height: 41svh; opacity: 0.85; }
 .hero-actions .btn-blush { display: none; }
-.peony-lines path { stroke: var(--blush); stroke-width: 0.9; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 2.4s var(--ease) var(--delay, 0s) forwards; }
-.peony-lines .peony-petal { fill: var(--ink); }
-.peony-stars path { fill: var(--paper); opacity: 0; animation: fade 1s ease 2s forwards; }
+.peony-lines path { stroke: var(--blush); stroke-width: 1.5; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 2.4s var(--ease) var(--delay, 0s) forwards; }
+.peony-lines .peony-shape { fill: var(--ink); }
+.peony-lines .peony-detail { stroke-opacity: 0.55; stroke-width: 1.1; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
-@keyframes fade { to { opacity: 0.8; } }
 .hero-copy { position: relative; max-width: 46rem; }
 .hero h1 { font: 300 clamp(4.2rem, 22vw, 11rem)/0.86 var(--serif); letter-spacing: -0.03em; margin-top: 1rem; }
 .hero h1 span { display: block; font-size: 0.34em; line-height: 1.1; letter-spacing: 0; color: var(--paper); }
@@ -214,7 +213,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .gallery { grid-template-columns: repeat(3, 1fr); }
   .embeds { grid-template-columns: repeat(2, 1fr); }
   .form-grid { grid-template-columns: repeat(2, 1fr); }
-  .hero-peony { right: -8%; top: 2%; width: min(70vw, 620px); max-height: none; }
+  .peony-lines path { stroke-width: 0.9; }
+  .peony-lines .peony-detail { stroke-width: 0.7; }
+  .hero-peony { right: 1%; top: 1%; width: min(58vw, 560px); max-height: calc(100svh - 6rem); }
   .hero-actions .btn-blush { display: inline-flex; }
   .artist { grid-template-columns: auto 1fr; gap: 3rem; align-items: center; }
   .artist-photo { width: 11rem; height: 11rem; }

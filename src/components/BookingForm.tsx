@@ -423,7 +423,7 @@ export function BookingForm() {
       <section className="form-group form-final" aria-label="Confirm and send">
         <label className={`check${errors.adult ? " field-invalid" : ""}`}>
           <input type="checkbox" name="adult" required {...aria("adult")} />
-          <span>I am 18 or older and will bring a valid government-issued photo ID.</span>
+          <span>I am 18 or older, or I will be accompanied by a guardian who is 18 or older. I will bring a valid government-issued photo ID.</span>
         </label>
         {errors.adult && <p className="field-error" id="adult-error">{errors.adult}</p>}
         <label className={`check${errors.understood ? " field-invalid" : ""}`}>

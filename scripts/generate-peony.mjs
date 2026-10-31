@@ -1,102 +1,134 @@
 #!/usr/bin/env node
-// Generates the hero peony line art. Run: node scripts/generate-peony.mjs
-// Petals are drawn outermost first and filled with the page colour, so each ring
-// hides the lines behind it, the way overlapping petals do in a line drawing.
+// Builds the hero peony line art. Run: node scripts/generate-peony.mjs
+// Outlines are traced by hand from the artist's reference drawing, in its 400x600 space.
+// Shapes are listed back to front and filled with the page colour, so each one hides
+// the lines behind it, the way overlapping petals do in a drawing.
 import { writeFileSync } from "node:fs";
 
-let seed = 17;
-const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-const between = (a, b) => a + rand() * (b - a);
 const n = (v) => Math.round(v * 10) / 10;
 
-const CENTER = [200, 186];
-const SQUASH = 0.88; // slight tilt toward the viewer
-
-/** Smooth closed or open curve through points (Catmull-Rom to cubic Bezier). */
-function curve(points, closed = false) {
+/** Catmull-Rom spline through points, as Bezier commands (no leading move). */
+function spline(points, closed) {
   const p = (i) => (closed ? points[(i + points.length) % points.length] : points[Math.max(0, Math.min(points.length - 1, i))]);
-  let d = `M${n(points[0][0])} ${n(points[0][1])}`;
+  let d = "";
   const last = closed ? points.length : points.length - 1;
   for (let i = 0; i < last; i++) {
     const [p0, p1, p2, p3] = [p(i - 1), p(i), p(i + 1), p(i + 2)];
     d += `C${n(p1[0] + (p2[0] - p0[0]) / 6)} ${n(p1[1] + (p2[1] - p0[1]) / 6)} ${n(p2[0] - (p3[0] - p1[0]) / 6)} ${n(p2[1] - (p3[1] - p1[1]) / 6)} ${n(p2[0])} ${n(p2[1])}`;
   }
-  return closed ? `${d}Z` : d;
+  return d;
 }
+const move = ([x, y]) => `M${n(x)} ${n(y)}`;
+/** Smooth closed shape, for rounded petals. */
+const round = (points) => `${move(points[0])}${spline(points, true)}Z`;
+/** Closed shape with sharp corners where its curves meet, for leaf tips and petal points. */
+const pointed = (...curves) => `${move(curves[0][0])}${curves.map((c) => spline(c, false)).join("")}Z`;
+/** Detail line. Two-point lines get a gentle bow so veins and folds never look ruled. */
+const line = (points) => {
+  if (points.length !== 2) return `${move(points[0])}${spline(points, false)}`;
+  const [[x1, y1], [x2, y2]] = points;
+  const mid = [(x1 + x2) / 2 - (y2 - y1) * 0.12, (y1 + y2) / 2 + (x2 - x1) * 0.12];
+  return `${move(points[0])}${spline([points[0], mid, points[1]], false)}`;
+};
+/** Leaf from tip to base along each side. */
+const leaf = (sideA, sideB, ...ribs) => ({ outline: pointed(sideA, [...sideB].reverse()), lines: ribs.map(line) });
+const petal = (outline, ...folds) => ({ outline, lines: folds.map(line) });
 
-function place(angle, lift) {
-  const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
-  return ([along, across]) => [
-    CENTER[0] + along * cos - across * sin,
-    CENTER[1] - lift + (along * sin + across * cos) * SQUASH,
-  ];
-}
-
-/** A broad, cupped petal: a rounded dome with a few uneven soft folds, sometimes notched. */
-function petal(angle, length, width, { lift, folds, depth, notch }) {
-  const at = place(angle, lift);
-  const edge = [];
-  const steps = folds * 2 + 1;
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps + (i > 0 && i < steps ? between(-0.03, 0.03) : 0);
-    const u = 2 * t - 1;
-    // Superellipse: wide shoulders, like a cupped petal seen from above.
-    const dome = Math.pow(1 - Math.pow(Math.abs(u), 2.6), 1 / 2.2);
-    const fold = i % 2 ? between(-depth, -depth * 0.25) : between(0, depth * 0.5);
-    const cut = notch && Math.abs(u) < 0.13 ? -0.1 : 0;
-    edge.push([length * (0.5 + 0.5 * dome + fold + cut), u * width * 0.52]);
-  }
-  return curve([[length * 0.12, 0], ...edge].map(at), true);
-}
-
-// Lift moves inner rings up: the bloom tips toward the viewer, so its heart sits above centre.
-const rings = [
-  { count: 6, length: 172, width: 172, lift: -6, offset: 0.2, folds: 3, depth: 0.05 },
-  { count: 7, length: 146, width: 138, lift: 0, offset: 0.65, folds: 3, depth: 0.06 },
-  { count: 8, length: 118, width: 104, lift: 6, offset: 0.1, folds: 2, depth: 0.07 },
-  { count: 8, length: 90, width: 80, lift: 12, offset: 0.55, folds: 2, depth: 0.08 },
-  { count: 8, length: 66, width: 60, lift: 17, offset: 0.2, folds: 2, depth: 0.09 },
-  { count: 7, length: 45, width: 42, lift: 21, offset: 0.7, folds: 1, depth: 0.1 },
-  { count: 5, length: 27, width: 28, lift: 24, offset: 0.3, folds: 1, depth: 0.1 },
-  { count: 3, length: 13, width: 16, lift: 26, offset: 0.9, folds: 1, depth: 0.08 },
+const leaves = [
+  leaf([[22, 312], [50, 322], [75, 328], [100, 335]], [[22, 312], [45, 325], [70, 333], [100, 335]]),
+  leaf([[353, 320], [320, 328], [280, 340]], [[353, 320], [325, 335], [282, 342]]),
+  leaf([[65, 161], [90, 163], [115, 170], [138, 190]], [[65, 161], [90, 172], [115, 182], [138, 190]]),
+  leaf(
+    [[115, 23], [100, 45], [85, 70], [80, 100], [85, 125], [100, 150], [122, 168], [140, 182]],
+    [[115, 23], [120, 45], [135, 65], [144, 88], [145, 120], [138, 152], [140, 182]],
+    [[115, 30], [118, 70], [122, 115], [130, 150], [140, 180]],
+    [[119, 95], [105, 80], [97, 62]], [[124, 125], [105, 112], [90, 92]], [[120, 85], [130, 72]], [[123, 118], [137, 98]], [[129, 148], [141, 125]],
+  ),
+  leaf(
+    [[205, 57], [180, 75], [160, 90], [148, 115], [141, 150], [142, 176]],
+    [[205, 57], [200, 85], [200, 100], [188, 128], [172, 154], [160, 164], [142, 176]],
+    [[203, 62], [175, 105], [155, 145], [142, 175]],
+    [[176, 104], [168, 92]], [[162, 128], [152, 112]], [[178, 102], [193, 96]], [[165, 124], [186, 122]], [[154, 146], [172, 148]],
+  ),
+  leaf(
+    [[329, 80], [315, 100], [295, 120], [288, 145], [290, 170], [297, 200]],
+    [[329, 80], [330, 105], [338, 130], [336, 155], [320, 180], [297, 200]],
+    [[328, 85], [315, 125], [305, 160], [297, 200]],
+    [[317, 120], [305, 118]], [[309, 148], [294, 142]], [[316, 122], [331, 118]], [[309, 150], [331, 146]],
+  ),
+  leaf([[365, 159], [340, 170], [325, 185], [312, 218]], [[365, 159], [358, 178], [340, 195], [312, 218]], [[362, 162], [335, 188], [312, 218]]),
+  leaf(
+    [[393, 208], [365, 203], [335, 212], [315, 235], [305, 255], [300, 265]],
+    [[393, 208], [378, 220], [362, 245], [335, 262], [300, 265]],
+    [[390, 209], [350, 225], [320, 250], [300, 265]],
+    [[350, 225], [338, 215]], [[328, 243], [318, 233]], [[350, 226], [362, 238]], [[328, 244], [345, 254]],
+  ),
+  leaf(
+    [[5, 402], [12, 380], [25, 358], [45, 342], [70, 336], [100, 336]],
+    [[5, 402], [30, 392], [55, 385], [75, 365], [85, 350], [100, 336]],
+    [[8, 400], [40, 370], [70, 350], [100, 336]],
+    [[40, 370], [32, 354]], [[62, 355], [55, 341]], [[40, 371], [55, 382]], [[62, 356], [72, 366]],
+  ),
+  leaf(
+    [[388, 404], [372, 375], [350, 352], [320, 341], [278, 340]],
+    [[388, 404], [355, 398], [325, 388], [300, 370], [278, 340]],
+    [[385, 402], [340, 372], [300, 352], [278, 340]],
+    [[340, 372], [345, 352]], [[315, 360], [322, 345]], [[340, 373], [330, 390]], [[315, 361], [308, 376]],
+  ),
+  leaf(
+    [[329, 486], [300, 458], [272, 435], [262, 405], [270, 385], [280, 375]],
+    [[329, 486], [330, 450], [330, 420], [310, 395], [290, 380], [280, 375]],
+    [[326, 480], [305, 430], [285, 395], [280, 375]],
+    [[305, 430], [283, 425]], [[293, 408], [270, 402]], [[306, 431], [326, 425]], [[294, 409], [315, 402]],
+  ),
+  leaf(
+    [[124, 541], [120, 520], [110, 490], [110, 472], [118, 446], [140, 430], [176, 420], [188, 410]],
+    [[124, 541], [150, 523], [175, 495], [180, 465], [183, 435], [188, 410]],
+    [[126, 536], [150, 495], [170, 450], [188, 410]],
+    [[150, 495], [125, 485]], [[162, 468], [130, 450]], [[172, 445], [150, 433]], [[151, 496], [172, 490]], [[163, 469], [178, 462]],
+  ),
+  leaf(
+    [[242, 562], [215, 540], [190, 515], [180, 480], [185, 440], [188, 410]],
+    [[242, 562], [255, 530], [265, 505], [265, 475], [250, 445], [225, 432], [205, 425], [188, 410]],
+    [[240, 556], [225, 500], [205, 450], [188, 410]],
+    [[225, 500], [200, 495]], [[214, 472], [188, 462]], [[226, 501], [258, 495]], [[215, 473], [250, 460]], [[205, 450], [228, 440]],
+  ),
 ];
 
-const petals = rings.map((ring) =>
-  Array.from({ length: ring.count }, (_, i) => {
-    const angle = ((i + ring.offset) / ring.count) * Math.PI * 2 + between(-0.13, 0.13);
-    const length = ring.length * between(0.9, 1.06);
-    return petal(angle, length, ring.width * between(0.88, 1.08), { ...ring, notch: rand() < 0.35 });
-  }),
-);
-
-/** One narrow, pointed leaflet with a midrib. */
-function leaflet(baseX, baseY, angle, length, width) {
-  const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
-  const at = ([a, b]) => [baseX + a * cos - b * sin, baseY + a * sin + b * cos];
-  const side = (s) => [[0, 0], [length * 0.3, s * width], [length * 0.65, s * width * 0.68], [length, 0]];
-  return [curve(side(1).map(at)), curve(side(-1).map(at)), curve([[0, 0], [length * 0.5, 1.5], [length * 0.86, 1]].map(at))];
-}
-
-/** Peony foliage: a stalk ending in three leaflets. */
-function leaf(baseX, baseY, angle, scale) {
-  const stalk = 26 * scale;
-  const x = baseX + stalk * Math.cos(angle);
-  const y = baseY + stalk * Math.sin(angle);
-  return [
-    curve([[baseX, baseY], [(baseX + x) / 2, (baseY + y) / 2 + 2], [x, y]]),
-    ...leaflet(x, y, angle, 78 * scale, 15 * scale),
-    ...leaflet(x, y, angle - 0.85, 60 * scale, 13 * scale),
-    ...leaflet(x, y, angle + 0.85, 60 * scale, 13 * scale),
-  ];
-}
-
-const foliage = [
-  "M204 290C210 372 192 440 208 516",
-  ...leaf(203, 396, Math.PI * 0.87, 1.05),
-  ...leaf(198, 444, Math.PI * 0.13, 1),
+const petals = [
+  // Back of the bloom
+  petal(round([[172, 165], [190, 142], [215, 132], [240, 140], [258, 158], [264, 175], [258, 200], [200, 205]]), [[218, 190], [215, 160]], [[238, 188], [244, 165]], [[198, 188], [195, 165]]),
+  petal(round([[141, 188], [146, 172], [160, 165], [176, 168], [192, 182], [196, 200], [150, 212]])),
+  petal(round([[147, 200], [132, 188], [112, 181], [86, 182], [66, 196], [59, 212], [66, 226], [62, 236], [66, 246], [84, 252], [100, 256], [140, 240]]), [[92, 240], [80, 212]], [[106, 225], [100, 198]]),
+  petal(round([[256, 192], [276, 187], [294, 196], [300, 210], [310, 218], [310, 230], [298, 250], [289, 262], [288, 276], [264, 280], [240, 240]]), [[275, 250], [285, 215]], [[265, 235], [270, 205]]),
+  // Wide lower petals
+  petal(round([[292, 262], [316, 262], [329, 276], [322, 296], [324, 308], [316, 320], [304, 338], [280, 340], [256, 320], [240, 308], [280, 280]]), [[285, 318], [310, 305]], [[285, 300], [315, 282]]),
+  petal(round([[59, 260], [44, 268], [38, 288], [43, 306], [60, 322], [96, 334], [120, 330], [156, 312], [104, 280], [88, 250], [66, 250]]), [[110, 312], [70, 308]], [[96, 292], [60, 285]]),
+  petal(round([[84, 346], [82, 368], [92, 392], [110, 402], [128, 410], [148, 408], [160, 396], [176, 384], [180, 360], [178, 338], [120, 320]]), [[135, 345], [125, 395]], [[110, 345], [102, 385]], [[158, 345], [156, 388]]),
+  petal(round([[178, 340], [180, 372], [188, 394], [208, 406], [228, 396], [248, 402], [268, 386], [279, 356], [272, 328], [248, 312], [200, 320]]), [[215, 345], [212, 395]], [[240, 340], [250, 388]], [[195, 345], [192, 385]]),
+  // Curled outer cup
+  petal(pointed([[90, 265], [102, 272], [120, 288], [152, 308], [154, 314]], [[154, 314], [120, 302], [104, 294], [94, 280], [90, 265]])),
+  petal(round([[120, 200], [138, 204], [146, 210], [128, 228], [120, 248], [120, 272], [106, 256], [100, 232], [106, 208]])),
+  // Heart of the flower
+  petal(round([[158, 210], [178, 205], [198, 218], [232, 238], [240, 270], [150, 270], [150, 240]])),
+  petal(round([[162, 216], [172, 214], [178, 224], [170, 234], [158, 230]])),
+  petal(round([[176, 212], [190, 214], [198, 226], [186, 236], [176, 226]])),
+  petal(round([[150, 244], [160, 236], [168, 246], [160, 258], [150, 256]])),
+  petal(round([[168, 232], [182, 230], [190, 242], [178, 250], [168, 244]])),
+  petal(round([[186, 234], [200, 236], [204, 248], [192, 254], [184, 246]])),
+  petal(round([[160, 248], [172, 244], [178, 256], [168, 266], [158, 260]])),
+  petal(round([[174, 250], [186, 248], [192, 260], [182, 270], [172, 264]])),
+  petal(round([[180, 194], [204, 190], [212, 196], [228, 212], [234, 236], [198, 212], [180, 206]]), [[208, 214], [198, 198]]),
+  petal(round([[230, 196], [244, 194], [254, 208], [256, 236], [248, 264], [240, 248], [236, 224], [229, 208]]), [[246, 240], [242, 210]]),
+  petal(pointed([[158, 207], [138, 220], [120, 248], [122, 258]], [[122, 258], [138, 253], [148, 242], [152, 224], [158, 207]])),
+  // Front of the cup
+  petal(round([[122, 258], [136, 253], [152, 256], [168, 260], [173, 280], [170, 288], [176, 302], [152, 302], [130, 288], [122, 272]]), [[150, 290], [145, 262]], [[135, 278], [132, 262]], [[162, 292], [160, 268]]),
+  petal(round([[170, 288], [172, 272], [192, 256], [216, 236], [236, 244], [240, 264], [224, 272], [208, 288], [202, 302], [176, 302]]), [[190, 290], [200, 262]], [[205, 275], [220, 250]]),
+  petal(pointed([[204, 302], [212, 280], [232, 268], [242, 266], [264, 251]], [[264, 251], [260, 272], [248, 292], [228, 300], [204, 302]]), [[225, 292], [240, 275]]),
+  petal(pointed([[134, 329], [160, 314], [188, 302], [208, 306], [240, 300]], [[240, 300], [224, 314], [200, 326], [172, 338], [150, 336], [134, 329]]), [[175, 325], [190, 310]], [[198, 318], [212, 308]]),
 ];
 
 writeFileSync(
   new URL("../src/components/peony-paths.ts", import.meta.url),
-  `// Generated by scripts/generate-peony.mjs. Edit that script, not this file.\nexport const petals: string[][] = ${JSON.stringify(petals)};\nexport const foliage: string[] = ${JSON.stringify(foliage)};\n`,
+  `// Generated by scripts/generate-peony.mjs. Edit that script, not this file.\ntype Shape = { outline: string; lines: string[] };\nexport const leaves: Shape[] = ${JSON.stringify(leaves)};\nexport const petals: Shape[] = ${JSON.stringify(petals)};\n`,
 );

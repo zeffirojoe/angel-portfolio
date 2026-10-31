@@ -62,6 +62,8 @@ const env = { ...process.env, NEXT_TELEMETRY_DISABLED: "1" };
 delete env.NODE_ENV;
 const mockEnv = { INSTAGRAM_ACCESS_TOKEN: "EAG-e2e-fake", INSTAGRAM_USER_ID: "", INSTAGRAM_USERNAME: "tattooist_angel", INSTAGRAM_GRAPH_BASE_URL: `http://localhost:${GRAPH}`, SMTP_HOST: "127.0.0.1", SMTP_PORT: String(SMTP), SMTP_FROM: "site@example.com", EMAIL: "artist@example.com", SMTP_USER: "", SMTP_PASSWORD: "" };
 if (!REAL) Object.assign(env, mockEnv);
+// Never email the artist from a test run, even with real settings in .env.
+else env.SMTP_HOST = "";
 
 // A leftover server would answer instead of this build and make results meaningless.
 if (await fetch(URL_).then(() => true, () => false)) {
@@ -182,6 +184,21 @@ try {
   await page.click(".btn-submit");
   check("mismatched email caught", (await page.locator("#confirmEmail-error").innerText()).includes("match"));
   await page.fill("#confirmEmail", "jamie@example.com");
+
+  // Both confirmations are required: neither alone may reach the server.
+  let posts = 0;
+  const countPost = (r) => { if (r.url().endsWith("/api/inquiry")) posts++; };
+  page.on("request", countPost);
+  for (const name of ["adult", "understood"]) {
+    await page.uncheck(`input[name=${name}]`);
+    await page.click(".btn-submit");
+    check(`submit blocked without "${name}"`, (await page.locator(`#${name}-error`).count()) === 1 && (await page.locator(".form-success").count()) === 0);
+    check(`"${name}" error focuses the checkbox`, (await page.evaluate(() => document.activeElement?.getAttribute("name"))) === name);
+    await page.check(`input[name=${name}]`);
+  }
+  page.off("request", countPost);
+  check("blocked submits never reached the server", posts === 0);
+  check("age wording mentions a guardian", (await page.locator("label.check").first().innerText()).includes("guardian who is 18 or older"));
 
   // Upload: a large phone-sized photo gets shrunk in the browser.
   const photo = await sharp({ create: { width: 4000, height: 3000, channels: 3, noise: { type: "gaussian", mean: 128, sigma: 40 } } }).jpeg({ quality: 95 }).toBuffer();
