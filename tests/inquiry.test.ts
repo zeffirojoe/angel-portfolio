@@ -57,7 +57,8 @@ const valid: Record<string, string> = {
   budget: "$200 to $500",
   returning: "No",
   notes: "",
-  adult: "on",
+  ageGroup: "18 or older",
+  ageConfirmed: "on",
   understood: "on",
   website: "",
 };
@@ -147,13 +148,21 @@ describe("POST /api/inquiry", () => {
     ["description", "too short", "description"],
     ["budget", "$1", "budget"],
     ["earliestDate", "2001-01-01", "earliestDate"],
-    ["adult", "", "adult"],
+    ["ageGroup", "", "ageGroup"],
+    ["ageGroup", "Under 16", "ageGroup"],
+    ["ageConfirmed", "", "ageConfirmed"],
     ["understood", "", "understood"],
   ])("rejects invalid %s", async (field, value, errorKey) => {
     const { status, body } = await result(await send(build({ [field]: value })));
     expect(status).toBe(422);
     expect(body.fieldErrors[errorKey]).toBeTruthy();
     expect(received).toHaveLength(0);
+  });
+
+  it("accepts a 16 or 17 year old and flags it for the artist", async () => {
+    const { status } = await result(await send(build({ ageGroup: "16 or 17" })));
+    expect(status).toBe(200);
+    expect(received[0].text).toContain("Age: 16 or 17 (minor: parent or guardian will attend)");
   });
 
   it("blocks header injection through the name", async () => {

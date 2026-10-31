@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { budgets, limits, projectTypes, sizes, styles } from "@/lib/inquiry/fields";
+import { ageGroups, budgets, limits, projectTypes, sizes, styles } from "@/lib/inquiry/fields";
 import { site } from "@/lib/site";
 
 type Attachment = { id: string; name: string; blob: Blob; preview: string };
@@ -85,11 +85,13 @@ function Choice({
   legend,
   options,
   error,
+  onChoose,
 }: {
   name: string;
   legend: string;
   options: readonly string[];
   error?: string;
+  onChoose?: (value: string) => void;
 }) {
   return (
     <fieldset className={`choice${error ? " field-invalid" : ""}`} aria-describedby={error ? `${name}-error` : undefined}>
@@ -97,7 +99,7 @@ function Choice({
       <div className="chips">
         {options.map((o) => (
           <label key={o} className="chip">
-            <input type="radio" name={name} value={o} required />
+            <input type="radio" name={name} value={o} required onChange={() => onChoose?.(o)} />
             <span>{o}</span>
           </label>
         ))}
@@ -152,6 +154,7 @@ export function BookingForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [processing, setProcessing] = useState(false);
+  const [age, setAge] = useState<string | null>(null);
   const [files, setFiles] = useState<Record<Bucket, Attachment[]>>({ placementPhotos: [], referenceImages: [] });
   const previews = useRef<Attachment[]>([]);
 
@@ -366,9 +369,38 @@ export function BookingForm() {
             <input id="phone" name="phone" type="tel" autoComplete="tel-national" inputMode="tel" placeholder="(732) 555-0123" {...aria("phone")} />
           </Field>
         </div>
+        <Choice
+          name="ageGroup"
+          legend="How old will you be on the day of your tattoo?"
+          options={ageGroups}
+          error={errors.ageGroup}
+          onChoose={(value) => {
+            setAge(value);
+            setStatus({ kind: "idle" });
+            setErrors((current) => {
+              const next = { ...current };
+              delete next.ageGroup;
+              delete next.ageConfirmed;
+              return next;
+            });
+          }}
+        />
+        {age === "Under 16" && (
+          <p className="age-note" role="status">
+            Angel tattoos clients who are 16 or older. We&rsquo;d love to hear from you once you turn 16!
+          </p>
+        )}
+        {age === "16 or 17" && (
+          <p className="age-note" role="status">
+            You&rsquo;re welcome to inquire. A parent or guardian who is 18 or older will need to come with you.
+          </p>
+        )}
+        <div className="form-follow" hidden={age === "Under 16"}>
         <Choice name="returning" legend="Have you been tattooed by Angel before?" options={["No", "Yes"]} error={errors.returning} />
+        </div>
       </section>
 
+      <div className="form-rest" hidden={age === "Under 16"}>
       <section className="form-group" aria-labelledby="g2">
         <h3 id="g2"><span>2</span> The idea</h3>
         <Choice name="projectType" legend="What kind of project is this?" options={projectTypes} error={errors.projectType} />
@@ -421,11 +453,18 @@ export function BookingForm() {
       </section>
 
       <section className="form-group form-final" aria-label="Confirm and send">
-        <label className={`check${errors.adult ? " field-invalid" : ""}`}>
-          <input type="checkbox" name="adult" required {...aria("adult")} />
-          <span>I am 18 or older, or I will be accompanied by a guardian who is 18 or older. I will bring a valid government-issued photo ID.</span>
-        </label>
-        {errors.adult && <p className="field-error" id="adult-error">{errors.adult}</p>}
+        {age && (
+          // Keyed by age so changing the answer always asks for a fresh confirmation.
+          <label key={age} className={`check${errors.ageConfirmed ? " field-invalid" : ""}`}>
+            <input type="checkbox" name="ageConfirmed" required {...aria("ageConfirmed")} />
+            <span>
+              {age === "16 or 17"
+                ? "I am 16 or 17, and a parent or guardian who is 18 or older will come with me and bring a valid government-issued photo ID."
+                : "I am 18 or older and will bring a valid government-issued photo ID."}
+            </span>
+          </label>
+        )}
+        {errors.ageConfirmed && <p className="field-error" id="ageConfirmed-error">{errors.ageConfirmed}</p>}
         <label className={`check${errors.understood ? " field-invalid" : ""}`}>
           <input type="checkbox" name="understood" required {...aria("understood")} />
           <span>I understand this is an inquiry, not a confirmed appointment, and that not every request can be accepted.</span>
@@ -451,6 +490,7 @@ export function BookingForm() {
           Your details and images go only to Angel by email and aren&rsquo;t stored on this site.
         </p>
       </section>
+      </div>
     </form>
   );
 }

@@ -1,4 +1,6 @@
 /** Options shared by the form and the server validator. */
+/** Clients must be 16 or older; 16 and 17 year olds need a parent or guardian present. */
+export const ageGroups = ["18 or older", "16 or 17", "Under 16"] as const;
 export const projectTypes = ["New tattoo", "Cover-up", "Touch-up or rework"] as const;
 export const styles = ["Fine line", "Black and grey realism", "Botanical or floral", "Lettering", "Not sure yet"] as const;
 export const sizes = [

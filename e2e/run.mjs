@@ -101,6 +101,7 @@ async function fill(page) {
   await page.fill("#confirmEmail", "jamie@example.com");
   await page.fill("#phone", "(732) 555-0123");
   // Real taps on the visible chips, so anything covering them makes this fail.
+  await page.locator("label.chip", { hasText: "18 or older" }).click();
   await page.locator("label.chip", { hasText: /^No$/ }).click();
   await page.locator("label.chip", { hasText: "New tattoo" }).click();
   await page.locator("label.chip", { hasText: /^Fine line$/ }).click();
@@ -109,7 +110,7 @@ async function fill(page) {
   await page.selectOption("#size", "Small (2 to 4 in)");
   await page.selectOption("#budget", "$200 to $500");
   await page.fill("#availability", "Weekday afternoons");
-  await page.check("input[name=adult]");
+  await page.check("input[name=ageConfirmed]");
   await page.check("input[name=understood]");
   check("chips register taps", await page.isChecked('input[name=style][value="Fine line"]'));
 }
@@ -189,7 +190,7 @@ try {
   let posts = 0;
   const countPost = (r) => { if (r.url().endsWith("/api/inquiry")) posts++; };
   page.on("request", countPost);
-  for (const name of ["adult", "understood"]) {
+  for (const name of ["ageConfirmed", "understood"]) {
     await page.uncheck(`input[name=${name}]`);
     await page.click(".btn-submit");
     check(`submit blocked without "${name}"`, (await page.locator(`#${name}-error`).count()) === 1 && (await page.locator(".form-success").count()) === 0);
@@ -198,7 +199,23 @@ try {
   }
   page.off("request", countPost);
   check("blocked submits never reached the server", posts === 0);
-  check("age wording mentions a guardian", (await page.locator("label.check").first().innerText()).includes("guardian who is 18 or older"));
+
+  // Age choice changes what's asked.
+  const ageBox = page.locator("input[name=ageConfirmed]");
+  const ageChip = (t) => page.locator("label.chip", { hasText: t }).click();
+  await ageChip("16 or 17");
+  check("16 or 17 asks about a guardian", (await page.locator("label.check").first().innerText()).includes("parent or guardian who is 18 or older"));
+  check("changing age clears the confirmation", !(await ageBox.isChecked()));
+  await page.locator(".age-note").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}phone-minor.png` });
+  await ageChip("Under 16");
+  check("under 16 hides the form and send button", (await page.locator(".btn-submit").isVisible()) === false && (await page.locator("#description").isVisible()) === false);
+  check("under 16 explains the minimum", (await page.locator(".age-note").innerText()).includes("16 or older"));
+  await page.locator(".age-note").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}phone-under16.png` });
+  await ageChip("18 or older");
+  check("choosing again restores entries", (await page.inputValue("#description")).includes("peony"));
+  await ageBox.check();
 
   // Upload: a large phone-sized photo gets shrunk in the browser.
   const photo = await sharp({ create: { width: 4000, height: 3000, channels: 3, noise: { type: "gaussian", mean: 128, sigma: 40 } } }).jpeg({ quality: 95 }).toBuffer();

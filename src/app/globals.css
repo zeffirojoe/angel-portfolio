@@ -180,6 +180,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .previews img { width: 5rem; height: 5rem; object-fit: cover; border-radius: 3px; }
 .previews button { position: absolute; top: -0.5rem; right: -0.5rem; width: 1.9rem; height: 1.9rem; padding: 0; border: 2px solid var(--paper); border-radius: 50%; background: var(--ink); color: var(--paper); line-height: 1; cursor: pointer; }
 
+.form-follow { margin-top: 1.25rem; }
+.form-rest { margin-top: 2.5rem; }
+.age-note { margin-top: 0.75rem; padding: 0.7rem 0.9rem; font-size: 0.92rem; background: #fff; border-left: 2px solid var(--blush-deep); }
+[hidden] { display: none !important; }
 .check { display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.5rem 0; font-size: 0.93rem; cursor: pointer; }
 .check input { flex: none; width: 1.3rem; height: 1.3rem; margin: 0.12rem 0 0; accent-color: var(--ink); }
 .form-final .field-error { margin: 0 0 0.5rem 2rem; }

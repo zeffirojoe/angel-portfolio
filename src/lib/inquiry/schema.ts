@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { budgets, projectTypes, sizes, styles } from "./fields";
+import { ageGroups, budgets, projectTypes, sizes, styles } from "./fields";
 
 // Rejects control characters, which also rules out header injection via newlines.
 const line = (label: string, max: number) =>
@@ -70,7 +70,10 @@ export const inquirySchema = z
       .refine((v) => links(v) <= 5, "Please remove some links.")
       .optional()
       .default(""),
-    adult: z.literal("on", "Please confirm you are 18 or older, or will bring a guardian who is."),
+    ageGroup: z
+      .enum(ageGroups, "Please choose your age.")
+      .refine((v) => v !== "Under 16", "Clients must be at least 16 years old."),
+    ageConfirmed: z.literal("on", "Please confirm this before sending."),
     understood: z.literal("on", "Please confirm you understand this is an inquiry."),
   })
   .refine((d) => d.email === d.confirmEmail, {

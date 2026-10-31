@@ -38,6 +38,7 @@ export function buildMessage(inquiry: Inquiry, placement: CleanImage[], referenc
     ["Email", inquiry.email],
     ["Phone", inquiry.phone || "Not provided"],
     ["Instagram", handle ? `@${handle}` : "Not provided"],
+    ["Age", inquiry.ageGroup === "16 or 17" ? "16 or 17 (minor: parent or guardian will attend)" : inquiry.ageGroup],
     ["Returning client", inquiry.returning],
     ["Project", inquiry.projectType],
     ["Style", inquiry.style],
